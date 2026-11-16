@@ -37,12 +37,15 @@ const correct=n=>attempts(n).reduce((s,a)=>s+a.correct,0);
 const latest=n=>attempts(n).slice(-1)[0];
 const toast=s=>{let el=$("toast");el.textContent=s;el.style.display="block";clearTimeout(window.toastTimeout);window.toastTimeout=setTimeout(()=>el.style.display="none",2500)};
 function selectedDate(){if(!$("activeDate").value)$("activeDate").value=today()}
-const views={dashboard:"Dashboard",planner:"Daily planner",diagnostic:"Diagnostic lab",chapters:"Chapter tracker",tests:"Daily tests",history:"Attempt history",library:"PYQ library",settings:"Data & backup"};
-let view="dashboard";
+function multiPlanStartDate(){const d=today();return d>="2026-11-16"&&d<="2026-11-23"?d:"2026-11-16"}
+const views={week:"My study week",dashboard:"Dashboard",planner:"Daily planner",diagnostic:"Diagnostic lab",chapters:"Chapter tracker",tests:"Daily tests",history:"Attempt history",library:"PYQ library",settings:"Data & backup"};
+let view="week";
 function go(v){view=v;$("pageTitle").textContent=views[v];document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));render()}
 document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>go(b.dataset.view));
-$("activeDate").value=today();$("activeDate").onchange=render;
+$("activeDate").value=multiPlanStartDate();$("activeDate").onchange=render;
 function render(){
+if(view==="week"){weekView();return}
+
 const d=date(),day=Math.round((new Date(d+"T12:00:00")-new Date(db.start+"T12:00:00"))/86400000)+1;
 const done=db.plans.filter(p=>p.done).length,answered=db.attempts.reduce((s,a)=>s+a.total,0),right=db.attempts.reduce((s,a)=>s+a.correct,0);
 if(view==="dashboard"){
@@ -52,7 +55,7 @@ $("app").innerHTML='<div class="grid">'+[
 ["Questions solved",answered,accuracy(right,answered)+"% overall accuracy"],
 ["Chapters completed",db.completed.length+" / "+chapters.length,"Completed checkboxes are tracked separately"],
 ["Planner tasks",done+" / "+db.plans.length,"Tasks checked off"],
-["Tests today",todayTests.length+" / 2","Aim for two analysed tests"],
+["Tests today",todayTests.length,"Log tests when useful; no two-test requirement"],
 ["Practice sessions",db.attempts.length,"Every diagnostic attempt stays in history"]
 ].map(x=>'<div class="card"><div class="muted small">'+x[0]+'</div><div class="stat">'+x[1]+'</div><div class="muted small">'+x[2]+'</div></div>').join("")+'</div>'+
 '<div class="two">'+box("Today's plan",todayPlans.length?todayPlans.map(p=>'<div class="item"><span>'+(p.done?"✓ ":"○ ")+escape(p.chapter)+' · '+p.target+' questions</span><span class="pill">'+(p.done?"Done":"Pending")+'</span></div>').join(""):'No tasks yet. Open Daily planner to add chapters.')+
@@ -62,7 +65,7 @@ if(view==="planner"){
 const plans=db.plans.filter(p=>p.date===d);
 $("app").innerHTML=box("Plan for "+d,'<form id="planForm" class="formgrid">'+field("Chapter",'<select name="chapter">'+opts()+'</select>')+field("Question target",'<input name="target" type="number" min="1" value="15" required>')+field("Focus / notes",'<input name="note" placeholder="e.g. Nernst equation">')+'<button class="btn">Add task</button></form>')+
 box("Today's checklist",plans.length?plans.map(p=>'<div class="item"><label><input type="checkbox" data-task="'+p.id+'" '+(p.done?"checked":"")+'> '+escape(p.chapter)+' · '+p.target+' PYQs <span class="muted small">'+escape(p.note)+'</span></label><button class="btn secondary" data-remove-task="'+p.id+'">Remove</button></div>').join(""):"No tasks planned yet.")+
-box("Two tests per day",'<p class="muted">Tests logged for this date: '+db.tests.filter(t=>t.date===d).length+'/2. '+(d==="2026-11-16"?"Bonus day: optional short diagnostic only.":"Plan Test 1 (chapter-wise) and Test 2 (mixed NSEC).")+' Use the Daily tests tab to enter scores and analysis.</p>');
+box("Optional timed tests",'<p class="muted">Tests logged for this date: '+db.tests.filter(t=>t.date===d).length+'/2. '+(d==="2026-11-16"?"Bonus day: optional short diagnostic only.":"Use a short targeted test when useful; prioritise NSEP and preboards too.")+' Use the Daily tests tab to enter scores and analysis.</p>');
 document.querySelectorAll("[data-jump]").forEach(x=>x.onclick=()=>{$("activeDate").value=x.dataset.jump;render()});
 $("planForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.plans.push({id:id(),date:d,chapter:f.get("chapter"),target:num(f.get("target")),note:f.get("note"),done:false});save();render()};
 document.querySelectorAll("[data-task]").forEach(x=>x.onchange=()=>{db.plans.find(p=>p.id===x.dataset.task).done=x.checked;save();render()});
@@ -103,4 +106,34 @@ $("export").onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:"
 $("import").onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.attempts)||!Array.isArray(x.plans)||!Array.isArray(x.tests))throw Error("Invalid backup");if(confirm("Replace current data with this backup?")){db={...defaults(),...x};save();render()}}catch(err){toast("Could not import backup: "+err.message)}};
 }
 }
+
+const multiPlan=[
+{date:"2026-11-16",label:"Bonus",tasks:[["Chemistry","Electrochemistry: learn from a short explanation, 5 basic questions, then 8–15 diagnostic PYQs","Core"],["Physics","Review one weak NSEP topic and solve 8 PYQs","Core"],["Preboards","Check subject order and list urgent school chapters","Core"],["Maths","Optional 1 challenging IOQM/ISI problem","Optional"]]},
+{date:"2026-11-17",label:"Day 1",tasks:[["Chemistry","Mole concept + atomic structure: targeted PYQs","Core"],["Physics","Mechanics: concepts + NSEP questions","Core"],["Preboards","Revise the first preboard subject for 45 minutes","Core"],["Maths","One 20-minute challenge problem","Optional"]]},
+{date:"2026-11-18",label:"Day 2",tasks:[["Chemistry","Equilibrium and solutions: PYQs + error review","Core"],["Physics","Electricity and magnetism: PYQs","Core"],["Preboards","School syllabus: one chapter and recall practice","Core"],["Maths","Rest or one proof problem","Optional"]]},
+{date:"2026-11-19",label:"Day 3",tasks:[["Chemistry","Bonding + periodic trends + coordination: focused PYQs","Core"],["Physics","Optics, waves or your weakest NSEP area","Core"],["Preboards","Past school questions for the first paper","Core"],["Maths","One IOQM/ISI-style question","Optional"]]},
+{date:"2026-11-20",label:"Day 4",tasks:[["Chemistry","GOC, isomerism and reaction mechanisms: PYQs","Core"],["Physics","Timed NSEP section and mistake analysis","Core"],["Preboards","Revise formulas, definitions and key answers","Core"],["Maths","Optional 20-minute maths break","Optional"]]},
+{date:"2026-11-21",label:"Day 5",tasks:[["Chemistry","Mixed NSEC revision: focus on mistakes, not new lectures","Core"],["Physics","NSEP final revision and a short timed practice","Core"],["Preboards","Prepare material for the first school paper","Core"],["Maths","Skip if tired; optional one problem","Optional"]]},
+{date:"2026-11-22",label:"NSEP exam",tasks:[["Physics","NSEP exam day: follow official reporting instructions","Core"],["Preboards","After rest, light revision for the Nov 23 paper","Core"]]},
+{date:"2026-11-23",label:"Preboards begin",tasks:[["Preboards","First preboard paper; revise for the next scheduled subject afterward","Core"]]}
+];
+if(!db.multiTasks)db.multiTasks={};
+const dayKey=(d,i)=>d+"-"+i;
+function weekView(){
+ const d=date(),entry=multiPlan.find(x=>x.date===d),all=multiPlan.flatMap(x=>x.tasks.map((t,i)=>({date:x.date,label:x.label,index:i,category:t[0],name:t[1],priority:t[2]})));
+ const completed=all.filter(t=>db.multiTasks[dayKey(t.date,t.index)]).length;
+ const dayTasks=entry?entry.tasks:[];
+ const doneDay=dayTasks.filter((t,i)=>db.multiTasks[dayKey(d,i)]).length;
+ const dateNav='<div class="date-strip">'+multiPlan.map(x=>'<button class="date-chip '+(d===x.date?'selected':'')+'" data-week-date="'+x.date+'"><strong>'+x.date.slice(5)+'</strong><small>'+x.label+'</small></button>').join("")+'</div>';
+ const tasks=dayTasks.length?dayTasks.map((t,i)=>'<label class="week-task '+(db.multiTasks[dayKey(d,i)]?'finished':'')+'"><input type="checkbox" data-week-check="'+i+'" '+(db.multiTasks[dayKey(d,i)]?'checked':'')+'><span class="task-main"><span class="task-cat">'+escape(t[0])+'</span><span class="task-name">'+escape(t[1])+'</span></span><span class="pill">'+t[2]+'</span></label>').join(""):'<p class="muted">No preset tasks for this date. Select Nov 16–23 above.</p>';
+ $("app").innerHTML='<div class="welcome card"><div class="eyebrow">ONE CLEAR PLAN · ALL YOUR EXAMS</div><h2>Focus on today, not everything at once.</h2><p class="muted">NSEP: Nov 22 · Preboards start: Nov 23 · Chemistry: Nov 17–21 · Maths: short optional challenges. These are suggested blocks, not a rigid timetable.</p><div class="progress-text"><strong>'+completed+' / '+all.length+' tasks done</strong><span>'+Math.round(100*completed/all.length)+'% of scheduled tasks</span></div><div class="bar"><div style="width:'+Math.round(100*completed/all.length)+'%"></div></div></div>'+
+ box("Choose your day",dateNav)+
+ box((entry?entry.label+' · ':'')+d+' · '+doneDay+'/'+dayTasks.length+' complete',tasks)+
+ '<div class="two">'+box("What to do next",'<p>Start with a <strong>Core</strong> task. Maths is optional during this exam-heavy week. You do not need two full chemistry tests every day.</p><div class="actions"><button class="btn" id="openChem">Log chemistry PYQs</button><button class="btn secondary" id="openTests">Log a timed test</button></div>')+
+ box("Keep your progress safe",'<p class="muted">Your ticks and scores save automatically on this browser. Export a JSON backup from Data & backup when needed.</p><div class="actions"><button class="btn secondary" id="openBackup">Backup settings</button><button class="btn secondary" id="openChemPlan">Chemistry checklist</button></div>')+'</div>';
+ document.querySelectorAll("[data-week-date]").forEach(b=>b.onclick=()=>{$("activeDate").value=b.dataset.weekDate;render()});
+ document.querySelectorAll("[data-week-check]").forEach(b=>b.onchange=()=>{db.multiTasks[dayKey(d,Number(b.dataset.weekCheck))]=b.checked;save();render()});
+ $("openChem").onclick=()=>go("diagnostic");$("openTests").onclick=()=>go("tests");$("openBackup").onclick=()=>go("settings");$("openChemPlan").onclick=()=>go("planner");
+}
+
 selectedDate();render();
