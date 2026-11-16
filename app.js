@@ -8,6 +8,23 @@ const key="nsec-prep-hq-v1",today=()=>new Date().toLocaleDateString("en-CA");
 const defaults=()=>({start:"2026-11-17",plans:[],attempts:[],tests:[],completed:[],notes:{}});
 let db;try{db={...defaults(),...JSON.parse(localStorage.getItem(key)||"{}")}}catch{db=defaults()}
 const $=id=>document.getElementById(id),save=()=>{localStorage.setItem(key,JSON.stringify(db));toast("Saved successfully")},escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])),id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7),num=n=>Number(n)||0;
+
+const studySchedule=[
+{date:"2026-11-16",label:"Bonus day",items:[["Electrochemistry",15,"Diagnostic PYQs; revise Nernst equation, conductance and cells based on errors"]]},
+{date:"2026-11-17",label:"Day 1",items:[["Mole Concept",15,"Timed diagnostic and error analysis"],["Atomic Structure",15,"Focus on weak concepts"],["Redox Reactions",12,"Oxidation numbers and balancing"],["Thermodynamics",15,"Formulas and concept revision"]]},
+{date:"2026-11-18",label:"Day 2",items:[["Chemical Equilibrium",15,"Conceptual PYQs"],["Ionic Equilibrium",15,"pH, buffers, Ksp"],["Solutions",12,"Colligative properties"],["Chemical Kinetics",15,"Rate laws and graphs"]]},
+{date:"2026-11-19",label:"Day 3",items:[["Chemical Bonding",15,"VSEPR, MOT and exceptions"],["Periodic Table",12,"Trends and exceptions"],["Coordination Compounds",15,"Isomerism and CFT"],["p-Block",15,"Recall common names and reactions"]]},
+{date:"2026-11-20",label:"Day 4",items:[["GOC",15,"Electronic effects and intermediates"],["Isomerism",15,"Stereochemistry"],["Hydrocarbons",12,"Reaction recall"],["Haloalkanes and Haloarenes",12,"Mechanisms"],["Alcohols Phenols Ethers",12,"Named reactions"]]},
+{date:"2026-11-21",label:"Day 5",items:[["Aldehydes and Ketones",15,"Reaction map and PYQs"],["Carboxylic Acids",12,"Conversions and reactions"],["Amines",12,"Basicity and reactions"],["Biomolecules",10,"Fast factual recall"],["Electrochemistry",10,"Retest weakest concepts"]]}
+];
+if(!db.scheduleSeeded){
+ const existing=new Set(db.plans.map(p=>p.date+"|"+p.chapter));
+ for(const day of studySchedule)for(const [chapter,target,note] of day.items){
+  if(!existing.has(day.date+"|"+chapter))db.plans.push({id:"seed-"+day.date+"-"+chapter,date:day.date,chapter,target,note,done:false});
+ }
+ db.scheduleSeeded=true;
+ localStorage.setItem(key,JSON.stringify(db));
+}
 const allNames=chapters.map(c=>c.name),opts=(names=allNames)=>names.map(n=>'<option value="'+escape(n)+'">'+escape(n)+'</option>').join("");
 const field=(label,html)=>'<label class="field">'+label+html+'</label>',box=(title,body)=>'<section class="card"><h2>'+title+'</h2>'+body+'</section>';
 const date=()=> $("activeDate").value||today();
@@ -31,7 +48,7 @@ const done=db.plans.filter(p=>p.done).length,answered=db.attempts.reduce((s,a)=>
 if(view==="dashboard"){
 const todayPlans=db.plans.filter(p=>p.date===d),todayTests=db.tests.filter(t=>t.date===d);
 $("app").innerHTML='<div class="grid">'+[
-["Study day",day+" / 5","Change the study start date in Data & backup"],
+["Study day",(day===0?"Bonus":day+" / 5"),"Change the study start date in Data & backup"],
 ["Questions solved",answered,accuracy(right,answered)+"% overall accuracy"],
 ["Chapters completed",db.completed.length+" / "+chapters.length,"Completed checkboxes are tracked separately"],
 ["Planner tasks",done+" / "+db.plans.length,"Tasks checked off"],
@@ -45,7 +62,8 @@ if(view==="planner"){
 const plans=db.plans.filter(p=>p.date===d);
 $("app").innerHTML=box("Plan for "+d,'<form id="planForm" class="formgrid">'+field("Chapter",'<select name="chapter">'+opts()+'</select>')+field("Question target",'<input name="target" type="number" min="1" value="15" required>')+field("Focus / notes",'<input name="note" placeholder="e.g. Nernst equation">')+'<button class="btn">Add task</button></form>')+
 box("Today's checklist",plans.length?plans.map(p=>'<div class="item"><label><input type="checkbox" data-task="'+p.id+'" '+(p.done?"checked":"")+'> '+escape(p.chapter)+' · '+p.target+' PYQs <span class="muted small">'+escape(p.note)+'</span></label><button class="btn secondary" data-remove-task="'+p.id+'">Remove</button></div>').join(""):"No tasks planned yet.")+
-box("Two tests per day",'<p class="muted">Tests logged for this date: '+db.tests.filter(t=>t.date===d).length+'/2. Use the Daily tests tab to enter scores and analysis.</p>');
+box("Two tests per day",'<p class="muted">Tests logged for this date: '+db.tests.filter(t=>t.date===d).length+'/2. '+(d==="2026-11-16"?"Bonus day: optional short diagnostic only.":"Plan Test 1 (chapter-wise) and Test 2 (mixed NSEC).")+' Use the Daily tests tab to enter scores and analysis.</p>');
+document.querySelectorAll("[data-jump]").forEach(x=>x.onclick=()=>{$("activeDate").value=x.dataset.jump;render()});
 $("planForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);db.plans.push({id:id(),date:d,chapter:f.get("chapter"),target:num(f.get("target")),note:f.get("note"),done:false});save();render()};
 document.querySelectorAll("[data-task]").forEach(x=>x.onchange=()=>{db.plans.find(p=>p.id===x.dataset.task).done=x.checked;save();render()});
 document.querySelectorAll("[data-remove-task]").forEach(x=>x.onclick=()=>{db.plans=db.plans.filter(p=>p.id!==x.dataset.removeTask);save();render()});
