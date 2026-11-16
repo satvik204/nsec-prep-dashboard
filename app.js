@@ -5,7 +5,7 @@ Inorganic:["Periodic Table","Chemical Bonding","Hydrogen and s-Block","p-Block",
 Organic:["GOC","Isomerism","Hydrocarbons","Haloalkanes and Haloarenes","Alcohols Phenols Ethers","Aldehydes and Ketones","Carboxylic Acids","Amines","Biomolecules","Polymers","Chemistry in Everyday Life"]};
 const chapters=Object.entries(CH).flatMap(([branch,names])=>names.map(name=>({branch,name})));
 const key="nsec-prep-hq-v1",today=()=>new Date().toLocaleDateString("en-CA");
-const defaults=()=>({start:today(),plans:[],attempts:[],tests:[],completed:[],notes:{}});
+const defaults=()=>({start:"2026-11-17",plans:[],attempts:[],tests:[],completed:[],notes:{}});
 let db;try{db={...defaults(),...JSON.parse(localStorage.getItem(key)||"{}")}}catch{db=defaults()}
 const $=id=>document.getElementById(id),save=()=>{localStorage.setItem(key,JSON.stringify(db));toast("Saved successfully")},escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])),id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7),num=n=>Number(n)||0;
 const allNames=chapters.map(c=>c.name),opts=(names=allNames)=>names.map(n=>'<option value="'+escape(n)+'">'+escape(n)+'</option>').join("");
